@@ -194,6 +194,24 @@ namespace AssetBundleBrowser
                 }
             }
 
+            // bundle selection
+            EditorGUILayout.Space();
+            var bundleNames = AssetBundleModel.Model.DataSource.GetAllAssetBundleNames();
+            var displayOptions = new string[bundleNames.Length + 1];
+            displayOptions[0] = "All Bundles";
+            for (int i = 0; i < bundleNames.Length; i++)
+                displayOptions[i + 1] = bundleNames[i];
+            if (m_UserData.m_SelectedBundleIndex >= displayOptions.Length)
+                m_UserData.m_SelectedBundleIndex = 0;
+            m_UserData.m_SelectedBundleIndex = EditorGUILayout.Popup(
+                new GUIContent("Bundle", "Build a single bundle for fast iteration. Only the selected bundle is passed to the build pipeline."),
+                m_UserData.m_SelectedBundleIndex, displayOptions);
+            if (m_UserData.m_SelectedBundleIndex > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Building a single bundle may duplicate assets that are shared with other bundles. Use a full build for production output.",
+                    MessageType.Warning);
+            }
 
             ////output path
             using (new EditorGUI.DisabledScope (!AssetBundleModel.Model.DataSource.CanSpecifyBuildOutputDirectory)) {
@@ -304,24 +322,31 @@ namespace AssetBundleBrowser
 
                 if (m_ForceRebuild.state)
                 {
-                    string message = "Do you want to delete all files in the directory " + m_UserData.m_OutputPath;
-                    if (m_CopyToStreaming.state)
-                        message += " and " + m_streamingPath;
-                    message += "?";
-                    if (EditorUtility.DisplayDialog("File delete confirmation", message, "Yes", "No"))
+                    if (m_UserData.m_SelectedBundleIndex > 0)
                     {
-                        try
+                        Debug.Log("AssetBundle Build: Skipping 'Clear Folders' when building a single bundle.");
+                    }
+                    else
+                    {
+                        string message = "Do you want to delete all files in the directory " + m_UserData.m_OutputPath;
+                        if (m_CopyToStreaming.state)
+                            message += " and " + m_streamingPath;
+                        message += "?";
+                        if (EditorUtility.DisplayDialog("File delete confirmation", message, "Yes", "No"))
                         {
-                            if (Directory.Exists(m_UserData.m_OutputPath))
-                                Directory.Delete(m_UserData.m_OutputPath, true);
+                            try
+                            {
+                                if (Directory.Exists(m_UserData.m_OutputPath))
+                                    Directory.Delete(m_UserData.m_OutputPath, true);
 
-                            if (m_CopyToStreaming.state)
-                            if (Directory.Exists(m_streamingPath))
-                                Directory.Delete(m_streamingPath, true);
-                        }
-                        catch (System.Exception e)
-                        {
-                            Debug.LogException(e);
+                                if (m_CopyToStreaming.state)
+                                if (Directory.Exists(m_streamingPath))
+                                    Directory.Delete(m_streamingPath, true);
+                            }
+                            catch (System.Exception e)
+                            {
+                                Debug.LogException(e);
+                            }
                         }
                     }
                 }
@@ -355,6 +380,37 @@ namespace AssetBundleBrowser
                 m_InspectTab.AddBundleFolder(buildInfo.outputDirectory);
                 m_InspectTab.RefreshBundles();
             };
+
+            if (m_UserData.m_SelectedBundleIndex > 0)
+            {
+                var allBundleNames = AssetBundleModel.Model.DataSource.GetAllAssetBundleNames();
+                int bundleIdx = m_UserData.m_SelectedBundleIndex - 1;
+                if (bundleIdx >= allBundleNames.Length)
+                {
+                    Debug.LogError("AssetBundle Build: Selected bundle index is out of range. Resetting to All Bundles.");
+                    m_UserData.m_SelectedBundleIndex = 0;
+                }
+                else
+                {
+                    string fullName = allBundleNames[bundleIdx];
+                    string[] assetPaths = AssetBundleModel.Model.DataSource.GetAssetPathsFromAssetBundle(fullName);
+                    if (assetPaths == null || assetPaths.Length == 0)
+                    {
+                        Debug.LogWarning("AssetBundle Build: Bundle '" + fullName + "' has no assets. Skipping build.");
+                        return;
+                    }
+
+                    var importer = AssetImporter.GetAtPath(assetPaths[0]);
+                    string bundleName = importer.assetBundleName;
+                    string variantName = importer.assetBundleVariant;
+
+                    AssetBundleBuild build = new AssetBundleBuild();
+                    build.assetBundleName = bundleName;
+                    build.assetBundleVariant = variantName;
+                    build.assetNames = assetPaths;
+                    buildInfo.bundlesToBuild = new AssetBundleBuild[] { build };
+                }
+            }
 
             AssetBundleModel.Model.DataSource.BuildAssetBundles (buildInfo);
 
@@ -455,6 +511,7 @@ namespace AssetBundleBrowser
             internal CompressOptions m_Compression = CompressOptions.StandardCompression;
             internal string m_OutputPath = string.Empty;
             internal bool m_UseDefaultPath = true;
+            internal int m_SelectedBundleIndex = 0; // 0 = All Bundles
         }
     }
 
