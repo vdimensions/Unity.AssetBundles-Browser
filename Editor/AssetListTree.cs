@@ -51,46 +51,39 @@ namespace AssetBundleBrowser
             retVal[2].canSort = true;
             retVal[2].autoResize = true;
 
-            retVal[3].headerContent = new GUIContent("!", "Errors, Warnings, or Info");
-            retVal[3].minWidth = 16;
-            retVal[3].width = 16;
-            retVal[3].maxWidth = 16;
+            retVal[3].headerContent = new GUIContent("Type", "Type of asset");
+            retVal[3].minWidth = 50;
+            retVal[3].width = 100;
+            retVal[3].maxWidth = 300;
             retVal[3].headerTextAlignment = TextAlignment.Left;
             retVal[3].canSort = true;
-            retVal[3].autoResize = false;
+            retVal[3].autoResize = true;
 
-            retVal[4].headerContent = new GUIContent("Type", "Type of asset");
-            retVal[4].minWidth = 50;
-            retVal[4].width = 100;
-            retVal[4].maxWidth = 300;
+            retVal[4].headerContent = new GUIContent("!", "Errors, Warnings, or Info");
+            retVal[4].minWidth = 16;
+            retVal[4].width = 16;
+            retVal[4].maxWidth = 16;
             retVal[4].headerTextAlignment = TextAlignment.Left;
             retVal[4].canSort = true;
-            retVal[4].autoResize = true;
+            retVal[4].autoResize = false;
+            
             return retVal;
-        }
-        enum MyColumns
-        {
-            Asset,
-            Bundle,
-            Size,
-            Message,
-            Type
         }
         internal enum SortOption
         {
             Asset,
             Bundle,
             Size,
-            Message,
-            Type
+            Type,
+            Message
         }
         SortOption[] m_SortOptions =
         {
             SortOption.Asset,
             SortOption.Bundle,
             SortOption.Size,
-            SortOption.Message,
-            SortOption.Type
+            SortOption.Type,
+            SortOption.Message
         };
 
         internal AssetListTree(TreeViewState state, MultiColumnHeaderState mchs, AssetBundleManageTab ctrl ) : base(state, new MultiColumnHeader(mchs))
@@ -176,15 +169,15 @@ namespace AssetBundleBrowser
                     DefaultGUI.Label(cellRect, item.asset.GetSizeString(), args.selected, args.focused);
                     break;
                 case 3:
+                    DefaultGUI.Label(cellRect, item.asset.fileType, args.selected, args.focused);
+                    break;
+                case 4:
                     var icon = item.MessageIcon();
                     if (icon != null)
                     {
                         var iconRect = new Rect(cellRect.x, cellRect.y, cellRect.height, cellRect.height);
                         GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
                     }
-                    break;
-                case 4:
-                    DefaultGUI.Label(cellRect, item.asset.fileType, args.selected, args.focused);
                     break;
             }
             GUI.color = oldColor;
@@ -311,15 +304,15 @@ namespace AssetBundleBrowser
                 return false;
 
             var data = m_SourceBundles[0] as AssetBundleModel.BundleDataInfo;
-            if(data == null)
+            if (data == null)
                 return false; // this should never happen.
+            
+            if (data.IsEmpty())
+                return true;
 
             var thing = DragAndDrop.GetGenericData("AssetListTreeSource") as AssetListTree;
             if (thing != null)
                 return false;
-            
-            if(data.IsEmpty())
-                return true;
 
 
             if (data.isSceneBundle)
@@ -444,10 +437,10 @@ namespace AssetBundleBrowser
                     return myTypes.Order(l => l.displayName, ascending);
                 case SortOption.Size:
                     return myTypes.Order(l => l.asset.fileSize, ascending);
-                case SortOption.Message:
-                    return myTypes.Order(l => l.HighestMessageLevel(), ascending);
                 case SortOption.Type:
                     return myTypes.Order(l => l.asset.fileType, ascending);
+                case SortOption.Message:
+                    return myTypes.Order(l => l.HighestMessageLevel(), ascending);
                 case SortOption.Bundle:
                 default:
                     return myTypes.Order(l => l.asset.bundleName, ascending);
